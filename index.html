@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Morel Log</title>
+  <meta name="description" content="Log your morel mushroom finds with GPS and environmental notes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Morel Log">
+  <meta name="theme-color" content="#4a7c2e">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%234a7c2e'/%3E%3Ctext y='.9em' font-size='72' x='12'%3E🍄%3C/text%3E%3C/svg%3E">
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Morel+Log%22%2C%22short_name%22%3A%22Morel+Log%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f6f3ee%22%2C%22theme_color%22%3A%22%234a7c2e%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520viewBox%253D%25270%25200%2520100%2520100%2527%253E%253Crect%2520width%253D%2527100%2527%2520height%253D%2527100%2527%2520rx%253D%252720%2527%2520fill%253D%2527%25234a7c2e%2527%252F%253E%253Ctext%2520y%253D%2527.9em%2527%2520font-size%253D%252772%2527%2520x%253D%252712%2527%253E%25F0%259F%258D%2584%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%252Fsvg%2Bxml%22%7D%5D%7D">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f6f3ee;
+      --surface:      #ffffff;
+      --surface-alt:  #f0ede8;
+      --border:       #ddd8d0;
+      --border-light: #e8e4de;
+      --text:         #1a1a1a;
+      --text-mid:     #4a4a4e;
+      --text-soft:    #858585;
+      --accent:       #4a7c2e;
+      --accent-mid:   #5a9436;
+      --accent-bg:    #ecf5e4;
+      --accent-border:#c0d9a8;
+      --red:          #b03020;
+      --red-bg:       #fdf0ee;
+      --red-border:   #e8b8b0;
+      --blue:         #2c5fa0;
+      --blue-bg:      #edf2fb;
+      --blue-border:  #b8ccee;
+      --radius:       10px;
+      --radius-sm:    7px;
+      --nav-height:   60px;
+      --safe-bottom:  env(safe-area-inset-bottom, 0px);
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Screens ─────────────────────────────── */
+    .screen {
+      display: none;
+      min-height: 100vh;
+      padding-bottom: calc(var(--nav-height) + var(--safe-bottom) + 8px);
+    }
+    .screen.active { display: block; }
+    .screen-pad { padding: 14px 14px 0; }
+
+    /* ── Navigation bar ──────────────────────── */
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: calc(var(--nav-height) + var(--safe-bottom));
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      z-index: 50;
+    }
+    .nav-btn {
+      flex: 1;
+      padding-top: 10px;
+      height: var(--nav-height);
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: 11px;
+      color: var(--text-soft);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn svg { width: 22px; height: 22px; stroke-width: 1.7; }
+
+    /* ── Cards ───────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-soft);
+      margin-bottom: 10px;
+    }
+
+    /* ── Buttons ─────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 11px 18px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.12s;
+      text-decoration: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn:active { opacity: 0.65; }
+    .btn-primary  { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .btn-secondary{ background: var(--surface); color: var(--text); border-color: var(--border); }
+    .btn-danger   { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-ghost-red{ background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
+    .btn-full { width: 100%; }
+    .btn-sm { padding: 8px 13px; font-size: 13px; }
+    .btn-lg { padding: 15px 20px; font-size: 16px; }
+
+    /* ── Count stepper ───────────────────────── */
+    .count-stepper {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .count-stepper button {
+      width: 56px;
+      height: 64px;
+      border: none;
+      background: var(--surface-alt);
+      font-size: 26px;
+      font-weight: 300;
+      color: var(--text-mid);
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .count-stepper button:active { background: var(--border); }
+    .count-stepper input {
+      flex: 1;
+      border: none;
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      font-family: inherit;
+      font-size: 34px;
+      font-weight: 700;
+      text-align: center;
+      color: var(--text);
+      height: 64px;
+      padding: 0;
+      -moz-appearance: textfield;
+    }
+    .count-stepper input::-webkit-outer-spin-button,
+    .count-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+    /* ── Status banners ──────────────────────── */
+    .status {
+      padding: 11px 13px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .status-info  { background: var(--blue-bg);  border: 1px solid var(--blue-border);  color: var(--blue); }
+    .status-ok    { background: var(--accent-bg); border: 1px solid var(--accent-border); color: var(--accent); }
+    .status-error { background: var(--red-bg);   border: 1px solid var(--red-border);   color: var(--red); }
+    .status-spinner { width: 14px; height: 14px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Chip selectors ──────────────────────── */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip {
+      padding: 8px 13px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      font-family: inherit;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text);
+      transition: border-color 0.1s, background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .chip.selected {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .chip.chip-skip {
+      border-style: dashed;
+      color: var(--text-soft);
+    }
+    .chip.chip-skip.selected {
+      border-color: var(--text-soft);
+      background: var(--surface-alt);
+      color: var(--text-mid);
+    }
+
+    /* ── Canopy picker ───────────────────────── */
+    .canopy-row { display: flex; gap: 6px; }
+    .canopy-btn {
+      flex: 1;
+      padding: 10px 4px 8px;
+      border-radius: var(--radius-sm);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      font-family: inherit;
+      cursor: pointer;
+      text-align: center;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.1s, background 0.1s;
+    }
+    .canopy-btn .num { font-size: 19px; font-weight: 600; color: var(--text-mid); }
+    .canopy-btn .lbl { font-size: 10px; color: var(--text-soft); margin-top: 2px; }
+    .canopy-btn.selected { border-color: var(--accent); background: var(--accent-bg); }
+    .canopy-btn.selected .num { color: var(--accent); }
+    .canopy-btn.canopy-skip { flex: 0 0 48px; border-style: dashed; }
+    .canopy-btn.canopy-skip .lbl { font-size: 11px; color: var(--text-soft); }
+    .canopy-btn.canopy-skip.selected { border-color: var(--text-soft); background: var(--surface-alt); }
+
+    /* ── Step indicator ──────────────────────── */
+    .steps {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      padding: 14px 0 6px;
+    }
+    .step-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--border);
+    }
+    .step-dot.past   { background: var(--accent-border); }
+    .step-dot.active { background: var(--accent); }
+
+    /* ── Result screen ───────────────────────── */
+    .result-hero {
+      text-align: center;
+      padding: 22px 14px 14px;
+    }
+    .result-num {
+      font-size: 72px;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+      letter-spacing: -2px;
+    }
+    .result-num-label {
+      font-size: 15px;
+      color: var(--text-soft);
+      margin-top: 2px;
+    }
+
+    .landmark-inner { padding: 6px 0; }
+    .landmark-name { font-size: 18px; font-weight: 600; margin-bottom: 3px; }
+    .landmark-meta { font-size: 13px; color: var(--text-soft); }
+    .landmark-type { font-size: 12px; color: var(--text-soft); margin-top: 2px; text-transform: capitalize; }
+
+    /* ── History screen ──────────────────────── */
+    .history-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .history-title { font-size: 17px; font-weight: 600; }
+    .history-stat  { font-size: 13px; color: var(--text-soft); margin-top: 1px; }
+    .history-actions { display: flex; gap: 7px; }
+
+    .find-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 13px 14px;
+      margin-bottom: 8px;
+    }
+    .find-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .find-count-block { display: flex; align-items: baseline; gap: 5px; }
+    .find-count-num { font-size: 32px; font-weight: 800; color: var(--accent); line-height: 1; }
+    .find-count-word { font-size: 12px; color: var(--text-soft); }
+    .find-datetime { font-size: 12px; color: var(--text-soft); text-align: right; line-height: 1.5; }
+    .find-landmark-row { font-size: 14px; font-weight: 500; margin-bottom: 5px; }
+    .find-gps-row { font-size: 12px; color: var(--text-soft); font-family: 'Menlo', 'Courier New', monospace; margin-bottom: 6px; }
+    .find-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .find-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border-light);
+      color: var(--text-mid);
+    }
+
+    /* ── Hero on log screen ──────────────────── */
+    .log-hero {
+      padding: 28px 14px 6px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .log-hero-icon { font-size: 44px; line-height: 1; }
+    .log-hero-text h1 { font-size: 22px; font-weight: 700; }
+    .log-hero-text p  { font-size: 13px; color: var(--text-soft); margin-top: 2px; }
+
+    /* ── Empty state ─────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 56px 20px;
+      color: var(--text-soft);
+    }
+    .empty-icon { font-size: 46px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; line-height: 1.5; }
+
+    /* ── Confirmation modal ──────────────────── */
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .sheet {
+      background: var(--surface);
+      border-radius: 16px 16px 0 0;
+      padding: 22px 18px calc(22px + var(--safe-bottom));
+      width: 100%;
+      max-width: 480px;
+    }
+    .sheet h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .sheet p  { font-size: 14px; color: var(--text-mid); margin-bottom: 18px; line-height: 1.5; }
+    .sheet-btns { display: flex; gap: 9px; }
+    .sheet-btns .btn { flex: 1; }
+
+    /* ── Utilities ───────────────────────────── */
+    .mt-8  { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .gap-8 { gap: 8px; }
+    hr.divider { border: none; border-top: 1px solid var(--border-light); margin: 12px 0; }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────── -->
+<nav class="nav" id="mainNav">
+  <button class="nav-btn active" id="navLog" onclick="showTab('log')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"/></svg>
+    Log
+  </button>
+  <button class="nav-btn" id="navHistory" onclick="showTab('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2H2v10l9.29 9.29a2 2 0 002.83 0l6.58-6.58a2 2 0 000-2.83L12 2z"/><circle cx="7" cy="7" r="1" fill="currentColor"/></svg>
+    History
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 1 — Log
+══════════════════════════════════════════ -->
+<div class="screen active" id="screenLog">
+  <div class="log-hero">
+    <div class="log-hero-icon">🍄</div>
+    <div class="log-hero-text">
+      <h1>Morel Log</h1>
+      <p>Track your finds &amp; spot patterns</p>
+    </div>
+  </div>
+
+  <div class="screen-pad">
+    <div class="card">
+      <div class="card-label">How many did you find?</div>
+      <div class="count-stepper">
+        <button onclick="adjustCount(-1)" aria-label="Decrease">−</button>
+        <input type="number" id="countInput" value="1" min="1" max="9999" inputmode="numeric" aria-label="Count">
+        <button onclick="adjustCount(1)" aria-label="Increase">+</button>
+      </div>
+    </div>
+
+    <div id="gpsStatus" style="display:none;"></div>
+
+    <button class="btn btn-primary btn-full btn-lg" onclick="startLog()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+      Log Find
+    </button>
+
+    <div id="logHint" class="mt-12" style="text-align:center; font-size:12px; color:var(--text-soft);">
+      GPS will be captured automatically
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 2 — Environmental notes
+══════════════════════════════════════════ -->
+<div class="screen" id="screenEnv">
+  <div class="steps">
+    <div class="step-dot past"></div>
+    <div class="step-dot active"></div>
+  </div>
+
+  <div class="screen-pad">
+    <div style="margin-bottom:14px;">
+      <div style="font-size:17px; font-weight:600;">Environmental Notes</div>
+      <div style="font-size:13px; color:var(--text-soft); margin-top:2px;">Quick-tap to record conditions — all optional</div>
+    </div>
+
+    <!-- Tree type -->
+    <div class="card">
+      <div class="card-label">Nearby Tree Type</div>
+      <div class="chip-row" id="treeChips">
+        <button class="chip" onclick="pickChip('tree','oak',this)">🌳 Oak</button>
+        <button class="chip" onclick="pickChip('tree','elm',this)">🌲 Elm</button>
+        <button class="chip" onclick="pickChip('tree','ash',this)">🌿 Ash</button>
+        <button class="chip" onclick="pickChip('tree','dying',this)">🪵 Dying Tree</button>
+        <button class="chip" onclick="pickChip('tree','mixed',this)">Mixed / Unknown</button>
+        <button class="chip chip-skip" onclick="pickChip('tree',null,this)">Skip</button>
+      </div>
+    </div>
+
+    <!-- Ground condition -->
+    <div class="card">
+      <div class="card-label">Ground Condition</div>
+      <div class="chip-row" id="groundChips">
+        <button class="chip" onclick="pickChip('ground','dry',this)">☀️ Dry</button>
+        <button class="chip" onclick="pickChip('ground','moist',this)">💧 Moist</button>
+        <button class="chip" onclick="pickChip('ground','wet',this)">🌧️ Wet</button>
+        <button class="chip chip-skip" onclick="pickChip('ground',null,this)">Skip</button>
+      </div>
+    </div>
+
+    <!-- Canopy cover -->
+    <div class="card">
+      <div class="card-label">Canopy Cover  <span style="font-weight:400; text-transform:none; letter-spacing:0;">(1 = open sky → 5 = dense shade)</span></div>
+      <div class="canopy-row" id="canopyBtns">
+        <button class="canopy-btn" onclick="pickCanopy(1,this)"><div class="num">1</div><div class="lbl">Open</div></button>
+        <button class="canopy-btn" onclick="pickCanopy(2,this)"><div class="num">2</div><div class="lbl"> </div></button>
+        <button class="canopy-btn" onclick="pickCanopy(3,this)"><div class="num">3</div><div class="lbl">Mid</div></button>
+        <button class="canopy-btn" onclick="pickCanopy(4,this)"><div class="num">4</div><div class="lbl"> </div></button>
+        <button class="canopy-btn" onclick="pickCanopy(5,this)"><div class="num">5</div><div class="lbl">Dense</div></button>
+        <button class="canopy-btn canopy-skip" onclick="pickCanopy(null,this)"><div class="lbl" style="margin-top:10px;">Skip</div></button>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full btn-lg mt-8" onclick="commitFind()">
+      Save Find →
+    </button>
+    <button class="btn btn-secondary btn-full mt-8" onclick="showTab('log')" style="font-size:14px; padding:11px;">
+      ← Cancel
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 3 — Result
+══════════════════════════════════════════ -->
+<div class="screen" id="screenResult">
+  <div class="screen-pad">
+
+    <div class="result-hero card" style="padding:22px 14px;">
+      <div class="result-num" id="resultCount">—</div>
+      <div class="result-num-label" id="resultCountLabel">mushroom found</div>
+      <div style="font-size:12px; color:var(--text-soft); margin-top:8px;" id="resultDatetime"></div>
+    </div>
+
+    <!-- Landmark -->
+    <div class="card" id="landmarkCard">
+      <div class="card-label">Nearest Landmark</div>
+      <div id="landmarkBody">
+        <div class="status status-info">
+          <div class="status-spinner"></div>
+          Looking up location…
+        </div>
+      </div>
+    </div>
+
+    <!-- GPS -->
+    <div class="card">
+      <div class="card-label">GPS Coordinates</div>
+      <div id="resultGps" style="font-size:13px; font-family:'Menlo','Courier New',monospace; color:var(--text-mid); line-height:1.7;"></div>
+    </div>
+
+    <!-- Env notes -->
+    <div class="card" id="resultEnvCard" style="display:none;">
+      <div class="card-label">Conditions</div>
+      <div id="resultEnvTags" class="find-tags"></div>
+    </div>
+
+    <button class="btn btn-secondary btn-full btn-lg mt-8" onclick="showTab('log')">
+      ← Log Another
+    </button>
+    <button class="btn btn-secondary btn-full mt-8" onclick="showTab('history')" style="font-size:14px;padding:11px;">
+      View History
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SCREEN 4 — History
+══════════════════════════════════════════ -->
+<div class="screen" id="screenHistory">
+  <div class="screen-pad">
+    <div class="history-header">
+      <div>
+        <div class="history-title">Find History</div>
+        <div class="history-stat" id="historyStat"></div>
+      </div>
+      <div class="history-actions">
+        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">Export CSV</button>
+        <button class="btn btn-ghost-red btn-sm" onclick="openConfirm()">Clear</button>
+      </div>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- ── Confirm clear modal ─────────────────── -->
+<div class="overlay" id="confirmOverlay" onclick="closeConfirm(event)">
+  <div class="sheet">
+    <h3>Clear all data?</h3>
+    <p>All logged finds will be permanently deleted. This can't be undone.</p>
+    <div class="sheet-btns">
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="clearAll()">Delete All</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Constants & state ───────────────────────
+const STORE_KEY = 'morel_finds_v2';
+
+let draft = {};       // find being built
+let env   = {};       // env selections for current draft
+
+// ── Storage helpers ─────────────────────────
+function loadFinds() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+  catch { return []; }
+}
+function saveFinds(arr) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+}
+
+// ── Navigation ──────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mainNav').style.display = 'flex';
+
+  if (tab === 'log') {
+    document.getElementById('screenLog').classList.add('active');
+    document.getElementById('navLog').classList.add('active');
+  } else if (tab === 'env') {
+    document.getElementById('screenEnv').classList.add('active');
+    document.getElementById('mainNav').style.display = 'none'; // full screen
+  } else if (tab === 'result') {
+    document.getElementById('screenResult').classList.add('active');
+    document.getElementById('navLog').classList.add('active');
+  } else if (tab === 'history') {
+    document.getElementById('screenHistory').classList.add('active');
+    document.getElementById('navHistory').classList.add('active');
+    renderHistory();
+  }
+}
+
+// ── Count stepper ────────────────────────────
+function adjustCount(delta) {
+  const el = document.getElementById('countInput');
+  const val = Math.max(1, (parseInt(el.value) || 1) + delta);
+  el.value = val;
+}
+
+// ── Log flow: step 1 — GPS ───────────────────
+function startLog() {
+  const count = parseInt(document.getElementById('countInput').value);
+  if (!count || count < 1) {
+    alert('Enter a count of at least 1.');
+    return;
+  }
+
+  draft = {
+    id:        Date.now(),
+    count,
+    timestamp: new Date().toISOString(),
+    lat: null, lon: null, accuracy: null,
+    landmark: null, landmarkDist: null, landmarkType: null,
+    tree: null, ground: null, canopy: null
+  };
+  env = { tree: null, ground: null, canopy: null };
+
+  const statusEl = document.getElementById('gpsStatus');
+  const hintEl   = document.getElementById('logHint');
+  statusEl.style.display = 'block';
+  statusEl.className = 'status status-info';
+  statusEl.innerHTML = '<div class="status-spinner"></div> Acquiring GPS…';
+  hintEl.style.display = 'none';
+
+  if (!navigator.geolocation) {
+    showGpsError('Geolocation not available on this device.');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      draft.lat      = pos.coords.latitude;
+      draft.lon      = pos.coords.longitude;
+      draft.accuracy = pos.coords.accuracy;
+
+      statusEl.className = 'status status-ok';
+      statusEl.innerHTML = `✓ ${draft.lat.toFixed(5)}, ${draft.lon.toFixed(5)}  (±${Math.round(draft.accuracy)} m)`;
+
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+        hintEl.style.display = '';
+        resetEnvUI();
+        showTab('env');
+      }, 900);
+    },
+    err => {
+      let msg = err.message;
+      if (err.code === 1) msg = 'Location permission denied. Allow location access in Settings, or save without GPS.';
+      if (err.code === 3) msg = 'GPS timed out. Saving without coordinates.';
+      showGpsError(msg);
+    },
+    { enableHighAccuracy: true, timeout: 18000, maximumAge: 0 }
+  );
+}
+
+function showGpsError(msg) {
+  const statusEl = document.getElementById('gpsStatus');
+  const hintEl   = document.getElementById('logHint');
+  statusEl.className = 'status status-error';
+  statusEl.innerHTML = '⚠ ' + msg;
+  setTimeout(() => {
+    statusEl.style.display = 'none';
+    hintEl.style.display = '';
+    resetEnvUI();
+    showTab('env');
+  }, 2500);
+}
+
+// ── Log flow: step 2 — env notes ────────────
+function resetEnvUI() {
+  document.querySelectorAll('#treeChips .chip, #groundChips .chip').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('#canopyBtns .canopy-btn').forEach(b => b.classList.remove('selected'));
+}
+
+function pickChip(field, value, el) {
+  const group = el.closest('.chip-row');
+  group.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  env[field] = value; // null = skip
+}
+
+function pickCanopy(value, el) {
+  document.querySelectorAll('#canopyBtns .canopy-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  env.canopy = value; // null = skip
+}
+
+// ── Log flow: step 3 — save & show result ───
+function commitFind() {
+  draft.tree   = env.tree;
+  draft.ground = env.ground;
+  draft.canopy = env.canopy;
+
+  // Persist immediately (landmark added async below)
+  const finds = loadFinds();
+  finds.unshift({ ...draft });
+  saveFinds(finds);
+
+  showTab('result');
+  populateResultScreen();
+
+  // Async: landmark lookup
+  if (draft.lat !== null) {
+    lookupLandmark(draft.lat, draft.lon)
+      .then(result => {
+        if (result) {
+          draft.landmark     = result.name;
+          draft.landmarkDist = result.dist;
+          draft.landmarkType = result.type;
+          draft.landmarkPending = false;
+          patchSavedFind(draft);
+          showLandmarkOk(result);
+        } else {
+          draft.landmarkPending = false;
+          patchSavedFind(draft);
+          showLandmarkNone();
+        }
+      })
+      .catch(() => {
+        // Network failure — mark for retry next time we're online
+        draft.landmarkPending = true;
+        patchSavedFind(draft);
+        showLandmarkRetry();
+      });
+  } else {
+    document.getElementById('landmarkBody').innerHTML =
+      '<div style="font-size:14px; color:var(--text-soft);">No GPS — location not available</div>';
+  }
+}
+
+function populateResultScreen() {
+  const n = draft.count;
+  document.getElementById('resultCount').textContent = n;
+  document.getElementById('resultCountLabel').textContent = n === 1 ? 'mushroom found' : 'mushrooms found';
+  document.getElementById('resultDatetime').textContent = formatDatetime(draft.timestamp);
+
+  document.getElementById('resultGps').innerHTML = draft.lat
+    ? `Lat: ${draft.lat.toFixed(6)}<br>Lon: ${draft.lon.toFixed(6)}<br>Accuracy: ±${Math.round(draft.accuracy)} m`
+    : 'No GPS data recorded';
+
+  const tags = buildTags(draft);
+  const envCard = document.getElementById('resultEnvCard');
+  if (tags.length) {
+    document.getElementById('resultEnvTags').innerHTML = tags.map(t => `<span class="find-tag">${t}</span>`).join('');
+    envCard.style.display = 'block';
+  } else {
+    envCard.style.display = 'none';
+  }
+}
+
+function showLandmarkOk(r) {
+  const ft = Math.round(r.dist * 3.28084);
+  const m  = Math.round(r.dist);
+  const typeStr = r.type ? `<div class="landmark-type">${r.type.replace(/_/g,' ')}</div>` : '';
+  document.getElementById('landmarkBody').innerHTML = `
+    <div class="landmark-inner">
+      <div class="landmark-name">📍 ${r.name}</div>
+      <div class="landmark-meta">${m} m  ·  ${ft} ft away</div>
+      ${typeStr}
+    </div>`;
+}
+function showLandmarkNone() {
+  document.getElementById('landmarkBody').innerHTML =
+    '<div style="font-size:14px; color:var(--text-soft);">No named areas found within 500 m</div>';
+}
+function showLandmarkErr() {
+  document.getElementById('landmarkBody').innerHTML =
+    '<div style="font-size:14px; color:var(--text-soft);">Could not reach location service</div>';
+}
+function showLandmarkRetry() {
+  document.getElementById('landmarkBody').innerHTML =
+    '<div style="font-size:14px; color:var(--text-soft);">No connection — will retry when back online</div>';
+}
+
+function patchSavedFind(updated) {
+  const finds = loadFinds();
+  const idx = finds.findIndex(f => f.id === updated.id);
+  if (idx !== -1) {
+    finds[idx] = { ...finds[idx], ...updated };
+    saveFinds(finds);
+  }
+}
+
+// ── Overpass API ─────────────────────────────
+async function lookupLandmark(lat, lon) {
+  const R = 500;
+  const q = `
+[out:json][timeout:15];
+(
+  way["natural"~"^(wood|scrub|heath|grassland|wetland|water)$"]["name"](around:${R},${lat},${lon});
+  way["leisure"~"^(park|nature_reserve|garden)$"]["name"](around:${R},${lat},${lon});
+  way["landuse"~"^(forest|meadow|orchard|vineyard)$"]["name"](around:${R},${lat},${lon});
+  way["boundary"="protected_area"]["name"](around:${R},${lat},${lon});
+  relation["natural"~"^(wood|scrub|wetland)$"]["name"](around:${R},${lat},${lon});
+  relation["leisure"~"^(park|nature_reserve)$"]["name"](around:${R},${lat},${lon});
+  relation["boundary"="protected_area"]["name"](around:${R},${lat},${lon});
+  node["place"~"^(locality|hamlet|village|suburb|neighbourhood)$"]["name"](around:${R},${lat},${lon});
+);
+out center;
+  `.trim();
+
+  const res  = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  if (!data.elements?.length) return null;
+
+  let best = null, bestDist = Infinity;
+  for (const el of data.elements) {
+    if (!el.tags?.name) continue;
+    const elLat = el.lat ?? el.center?.lat;
+    const elLon = el.lon ?? el.center?.lon;
+    if (elLat == null || elLon == null) continue;
+    const d = haversine(lat, lon, elLat, elLon);
+    if (d < bestDist) {
+      bestDist = d;
+      best = {
+        name: el.tags.name,
+        dist: d,
+        type: el.tags.natural || el.tags.leisure || el.tags.landuse ||
+              el.tags.boundary === 'protected_area' ? 'protected area' : el.tags.place || null
+      };
+    }
+  }
+  return best;
+}
+
+// ── Haversine distance ───────────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371000, D = Math.PI / 180;
+  const dLat = (lat2 - lat1) * D, dLon = (lon2 - lon1) * D;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*D)*Math.cos(lat2*D)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// ── History rendering ────────────────────────
+function renderHistory() {
+  const finds = loadFinds();
+  const listEl = document.getElementById('historyList');
+  const statEl = document.getElementById('historyStat');
+
+  if (!finds.length) {
+    statEl.textContent = '';
+    listEl.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">🍄</div>
+        <p>No finds logged yet.<br>Head out and record your first one!</p>
+      </div>`;
+    return;
+  }
+
+  const total = finds.reduce((s, f) => s + (f.count || 0), 0);
+  statEl.textContent = `${finds.length} find${finds.length > 1 ? 's' : ''}  ·  ${total} total`;
+
+  listEl.innerHTML = finds.map(f => {
+    const tags    = buildTags(f);
+    const gpsLine = f.lat ? `${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}` : 'No GPS';
+    const distStr = f.landmarkDist ? `  ·  ${Math.round(f.landmarkDist)} m` : '';
+    const [datePart, timePart] = formatDatetime(f.timestamp).split(' · ');
+
+    return `
+      <div class="find-card">
+        <div class="find-top">
+          <div class="find-count-block">
+            <span class="find-count-num">${f.count}</span>
+            <span class="find-count-word">${f.count === 1 ? 'found' : 'found'}</span>
+          </div>
+          <div class="find-datetime">${datePart}<br>${timePart}</div>
+        </div>
+        ${f.landmark
+          ? `<div class="find-landmark-row">📍 ${escapeHtml(f.landmark)}${distStr}</div>`
+          : ''}
+        <div class="find-gps-row">${gpsLine}</div>
+        ${tags.length ? `<div class="find-tags">${tags.map(t => `<span class="find-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// ── Tag builder ──────────────────────────────
+const TREE_LABELS   = { oak:'🌳 Oak', elm:'🌲 Elm', ash:'🌿 Ash', dying:'🪵 Dying Tree', mixed:'Mixed / Unknown' };
+const GROUND_LABELS = { dry:'☀️ Dry', moist:'💧 Moist', wet:'🌧️ Wet' };
+
+function buildTags(f) {
+  const t = [];
+  if (f.tree)   t.push(TREE_LABELS[f.tree]   || f.tree);
+  if (f.ground) t.push(GROUND_LABELS[f.ground] || f.ground);
+  if (f.canopy) t.push(`Canopy ${f.canopy}/5`);
+  return t;
+}
+
+// ── Export CSV ───────────────────────────────
+function exportCSV() {
+  const finds = loadFinds();
+  if (!finds.length) { alert('No finds to export.'); return; }
+
+  const headers = [
+    'Date','Time','Count',
+    'Latitude','Longitude','Accuracy_m',
+    'Landmark','Landmark_Dist_m','Landmark_Type',
+    'Tree','Ground','Canopy'
+  ];
+
+  const rows = finds.map(f => {
+    const d = new Date(f.timestamp);
+    return [
+      d.toLocaleDateString('en-US'),
+      d.toLocaleTimeString('en-US'),
+      f.count,
+      f.lat  ?? '',
+      f.lon  ?? '',
+      f.accuracy != null ? Math.round(f.accuracy) : '',
+      f.landmark  ? `"${f.landmark.replace(/"/g,'""')}"` : '',
+      f.landmarkDist  ? Math.round(f.landmarkDist) : '',
+      f.landmarkType  ? `"${String(f.landmarkType).replace(/"/g,'""')}"` : '',
+      f.tree   ?? '',
+      f.ground ?? '',
+      f.canopy ?? ''
+    ].join(',');
+  });
+
+  const csv  = [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `morel-log-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Confirm / clear ──────────────────────────
+function openConfirm() {
+  document.getElementById('confirmOverlay').classList.add('open');
+}
+function closeConfirm(e) {
+  if (!e || e.target === document.getElementById('confirmOverlay')) {
+    document.getElementById('confirmOverlay').classList.remove('open');
+  }
+}
+function clearAll() {
+  localStorage.removeItem(STORE_KEY);
+  document.getElementById('confirmOverlay').classList.remove('open');
+  renderHistory();
+}
+
+// ── Formatting helpers ───────────────────────
+function formatDatetime(iso) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  const time = d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  return `${date} · ${time}`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Pending landmark retries ─────────────────
+async function retryPendingLandmarks() {
+  const finds = loadFinds();
+  const pending = finds.filter(f => f.landmarkPending && f.lat != null);
+  if (!pending.length) return;
+
+  let anyUpdated = false;
+  for (const f of pending) {
+    try {
+      const result = await lookupLandmark(f.lat, f.lon);
+      f.landmarkPending = false;
+      if (result) {
+        f.landmark     = result.name;
+        f.landmarkDist = result.dist;
+        f.landmarkType = result.type;
+      }
+      anyUpdated = true;
+    } catch {
+      // Still offline — leave pending, try again next time
+    }
+  }
+
+  if (anyUpdated) {
+    // Write all updates back in one pass
+    const all = loadFinds();
+    const patchMap = Object.fromEntries(pending.map(f => [f.id, f]));
+    for (let i = 0; i < all.length; i++) {
+      if (patchMap[all[i].id]) all[i] = patchMap[all[i].id];
+    }
+    saveFinds(all);
+    // Refresh history if it's visible
+    if (document.getElementById('screenHistory').classList.contains('active')) {
+      renderHistory();
+    }
+  }
+}
+
+// ── Boot ─────────────────────────────────────
+showTab('log');
+retryPendingLandmarks();
+window.addEventListener('online', retryPendingLandmarks);
+</script>
+</body>
+</html>
