@@ -478,6 +478,12 @@
       </div>
     </div>
 
+    <!-- Notes -->
+    <div class="card">
+      <div class="card-label">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></div>
+      <textarea id="notesInput" rows="3" placeholder="e.g. Under the big pecan tree on the north side…" style="width:100%;border:none;background:transparent;font-family:inherit;font-size:15px;color:var(--text);resize:none;outline:none;line-height:1.5;"></textarea>
+    </div>
+
     <button class="btn btn-primary btn-full btn-lg mt-8" onclick="commitFind()">
       Save Find →
     </button>
@@ -520,6 +526,12 @@
     <div class="card" id="resultEnvCard" style="display:none;">
       <div class="card-label">Conditions</div>
       <div id="resultEnvTags" class="find-tags"></div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card" id="resultNotesCard" style="display:none;">
+      <div class="card-label">Notes</div>
+      <div id="resultNotesText" style="font-size:14px;line-height:1.55;color:var(--text-mid);"></div>
     </div>
 
     <button class="btn btn-secondary btn-full btn-lg mt-8" onclick="showTab('log')">
@@ -642,30 +654,69 @@ function startLog() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
+  const ACCURACY_TARGET = 20; // metres — stop early if we hit this
+  const MAX_WAIT        = 18000; // ms — give up and use best fix after this
+  let watchId   = null;
+  let bestPos   = null;
+  let committed = false;
+
+  function acceptPos(pos) {
+    if (committed) return;
+    committed = true;
+    navigator.geolocation.clearWatch(watchId);
+
+    draft.lat      = pos.coords.latitude;
+    draft.lon      = pos.coords.longitude;
+    draft.accuracy = pos.coords.accuracy;
+
+    statusEl.className = 'status status-ok';
+    statusEl.innerHTML = `✓ ${draft.lat.toFixed(5)}, ${draft.lon.toFixed(5)}  (±${Math.round(draft.accuracy)} m)`;
+
+    setTimeout(() => {
+      statusEl.style.display = 'none';
+      hintEl.style.display = '';
+      resetEnvUI();
+      showTab('env');
+    }, 900);
+  }
+
+  watchId = navigator.geolocation.watchPosition(
     pos => {
-      draft.lat      = pos.coords.latitude;
-      draft.lon      = pos.coords.longitude;
-      draft.accuracy = pos.coords.accuracy;
-
-      statusEl.className = 'status status-ok';
-      statusEl.innerHTML = `✓ ${draft.lat.toFixed(5)}, ${draft.lon.toFixed(5)}  (±${Math.round(draft.accuracy)} m)`;
-
-      setTimeout(() => {
-        statusEl.style.display = 'none';
-        hintEl.style.display = '';
-        resetEnvUI();
-        showTab('env');
-      }, 900);
+      // Always keep the best fix seen so far
+      if (!bestPos || pos.coords.accuracy < bestPos.coords.accuracy) {
+        bestPos = pos;
+        // Show live accuracy while refining
+        statusEl.innerHTML = `<div class="status-spinner"></div> Acquiring GPS… ±${Math.round(pos.coords.accuracy)} m`;
+      }
+      // Accept immediately if we've hit the target
+      if (pos.coords.accuracy <= ACCURACY_TARGET) acceptPos(pos);
     },
     err => {
+      if (committed) return;
+      committed = true;
+      navigator.geolocation.clearWatch(watchId);
       let msg = err.message;
       if (err.code === 1) msg = 'Location permission denied. Allow location access in Settings, or save without GPS.';
-      if (err.code === 3) msg = 'GPS timed out. Saving without coordinates.';
+      if (err.code === 3) msg = bestPos
+        ? null  // timeout but we have something — use it
+        : 'GPS timed out. Saving without coordinates.';
+      if (msg === null) { acceptPos(bestPos); return; }
       showGpsError(msg);
     },
-    { enableHighAccuracy: true, timeout: 18000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: MAX_WAIT, maximumAge: 0 }
   );
+
+  // Hard deadline: use whatever best fix we have
+  setTimeout(() => {
+    if (!committed) {
+      if (bestPos) acceptPos(bestPos);
+      else {
+        committed = true;
+        navigator.geolocation.clearWatch(watchId);
+        showGpsError('GPS timed out. Saving without coordinates.');
+      }
+    }
+  }, MAX_WAIT);
 }
 
 function showGpsError(msg) {
@@ -685,6 +736,7 @@ function showGpsError(msg) {
 function resetEnvUI() {
   document.querySelectorAll('#treeChips .chip, #groundChips .chip').forEach(c => c.classList.remove('selected'));
   document.querySelectorAll('#canopyBtns .canopy-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('notesInput').value = '';
 }
 
 function pickChip(field, value, el) {
@@ -705,6 +757,7 @@ function commitFind() {
   draft.tree   = env.tree;
   draft.ground = env.ground;
   draft.canopy = env.canopy;
+  draft.notes  = document.getElementById('notesInput').value.trim() || null;
 
   // Persist immediately (landmark added async below)
   const finds = loadFinds();
@@ -760,6 +813,14 @@ function populateResultScreen() {
     envCard.style.display = 'block';
   } else {
     envCard.style.display = 'none';
+  }
+
+  const notesCard = document.getElementById('resultNotesCard');
+  if (draft.notes) {
+    document.getElementById('resultNotesText').textContent = draft.notes;
+    notesCard.style.display = 'block';
+  } else {
+    notesCard.style.display = 'none';
   }
 }
 
@@ -885,6 +946,7 @@ function renderHistory() {
           : ''}
         <div class="find-gps-row">${gpsLine}</div>
         ${tags.length ? `<div class="find-tags">${tags.map(t => `<span class="find-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
+        ${f.notes ? `<div style="margin-top:7px;font-size:13px;color:var(--text-mid);line-height:1.5;">${escapeHtml(f.notes)}</div>` : ''}
       </div>`;
   }).join('');
 }
@@ -910,7 +972,7 @@ function exportCSV() {
     'Date','Time','Count',
     'Latitude','Longitude','Accuracy_m',
     'Landmark','Landmark_Dist_m','Landmark_Type',
-    'Tree','Ground','Canopy'
+    'Tree','Ground','Canopy','Notes'
   ];
 
   const rows = finds.map(f => {
@@ -927,7 +989,8 @@ function exportCSV() {
       f.landmarkType  ? `"${String(f.landmarkType).replace(/"/g,'""')}"` : '',
       f.tree   ?? '',
       f.ground ?? '',
-      f.canopy ?? ''
+      f.canopy ?? '',
+      f.notes  ? `"${f.notes.replace(/"/g,'""')}"` : ''
     ].join(',');
   });
 
