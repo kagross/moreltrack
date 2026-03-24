@@ -944,7 +944,9 @@ function renderHistory() {
         ${f.landmark
           ? `<div class="find-landmark-row">📍 ${escapeHtml(f.landmark)}${distStr}</div>`
           : ''}
-        <div class="find-gps-row">${gpsLine}</div>
+        ${f.lat
+          ? `<a class="find-gps-row" href="geo:${f.lat},${f.lon}?q=${f.lat},${f.lon}" style="display:block;color:var(--blue);text-decoration:none;">${gpsLine} ↗</a>`
+          : `<div class="find-gps-row">${gpsLine}</div>`}
         ${tags.length ? `<div class="find-tags">${tags.map(t => `<span class="find-tag">${escapeHtml(t)}</span>`).join('')}</div>` : ''}
         ${f.notes ? `<div style="margin-top:7px;font-size:13px;color:var(--text-mid);line-height:1.5;">${escapeHtml(f.notes)}</div>` : ''}
       </div>`;
